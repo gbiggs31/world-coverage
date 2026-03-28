@@ -484,8 +484,8 @@ async function initMap() {
   try {
     const world = await d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
 
-    projection = d3.geoRobinson()
-      .scale(148)
+    projection = d3.geoNaturalEarth1()
+      .scale(153)
       .translate([MW / 2, MH / 2 + 10]);
 
     geoPath = d3.geoPath(projection);
