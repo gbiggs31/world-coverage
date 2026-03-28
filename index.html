@@ -396,19 +396,21 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
 <script>
 const EARTH_TOTAL = 510072000;
 const EARTH_LAND  = 148940000;
 
 // Land fraction per 5° latitude band, index 0 = [-90,-85]
+// Fraction of each 5° latitude band (index 0 = [-90,-85]) covered by land.
+// Calibrated so that the spherical integral equals EARTH_LAND (148,940,000 km²)
+// within 0.015%. Derived from zonal land-mask analysis.
 const LAND_FRAC = [
-  0.98,0.92,0.72,0.42,0.22,0.12,
-  0.10,0.12,0.18,0.20,0.22,0.26,
-  0.32,0.42,0.46,0.50,0.55,0.60,
-  0.52,0.50,0.48,0.52,0.58,0.62,
-  0.65,0.68,0.70,0.66,0.60,0.52,
-  0.45,0.38,0.30,0.22,0.12,0.02
+  0.98,0.93,0.78,0.58,0.28,0.09,  // -90 to -60 (Antarctica)
+  0.05,0.05,0.05,0.06,0.11,0.16,  // -60 to -30 (Southern Ocean / southern continents)
+  0.19,0.22,0.22,0.19,0.22,0.22,  // -30 to  0  (southern subtropics / equatorial)
+  0.24,0.23,0.26,0.29,0.33,0.34,  //   0 to 30  (northern tropics / subtropics)
+  0.48,0.46,0.51,0.56,0.53,0.52,  //  30 to 60  (northern mid-latitudes)
+  0.64,0.60,0.50,0.25,0.12,0.03   //  60 to 90  (northern high latitudes / Arctic)
 ];
 
 
@@ -859,7 +861,10 @@ function showLoading(v) {
   document.getElementById('loading').classList.toggle('active', v);
 }
 
-initMap();
+const topoScript = document.createElement('script');
+topoScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js';
+topoScript.onload = () => initMap();
+document.head.appendChild(topoScript);
 </script>
 </body>
 </html>
