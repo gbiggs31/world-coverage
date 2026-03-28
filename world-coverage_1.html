@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World Coverage Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Mono:wght@300;400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f12;
+    --surface: #161a20;
+    --surface2: #1e2329;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #e8e4da;
+    --text2: #8a8680;
+    --text3: #5a5650;
+    --accent: #c8a96e;
+    --accent2: #e8c98e;
+    --red: #e05c3a;
+    --green: #4a9e7a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 3rem 2rem 4rem;
+  }
+  header {
+    margin-bottom: 3rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 2rem;
+  }
+  .eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.75rem;
+  }
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    font-weight: 400;
+    line-height: 1.1;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+  h1 em { font-style: italic; color: var(--accent); }
+  .subtitle {
+    margin-top: 0.75rem;
+    font-size: 15px;
+    color: var(--text2);
+    font-weight: 300;
+    max-width: 520px;
+    line-height: 1.6;
+  }
+  .inputs-section { margin-bottom: 2rem; }
+  .inputs-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 1rem;
+  }
+  .compass-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    max-width: 600px;
+  }
+  .input-field {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: border-color 0.2s;
+  }
+  .input-field:focus-within { border-color: var(--border2); }
+  .input-field.resolved { border-color: rgba(200,169,110,0.35); }
+  .input-field.error { border-color: rgba(224,92,58,0.4); }
+  .dir-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    min-width: 14px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .field-inner { flex: 1; min-width: 0; }
+  .field-inner label {
+    display: block;
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+  .field-inner input {
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 300;
+    width: 100%;
+  }
+  .field-inner input::placeholder { color: var(--text3); }
+  .coord-hint {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    margin-top: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .field-status {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text3);
+    flex-shrink: 0;
+    transition: background 0.2s;
+  }
+  .field-status.ok { background: var(--green); }
+  .field-status.err { background: var(--red); }
+  .field-status.loading { background: var(--accent); animation: pulse 0.8s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .calc-btn {
+    margin-top: 1.25rem;
+    background: var(--accent);
+    color: #0d0f12;
+    border: none;
+    padding: 12px 32px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: background 0.2s, transform 0.1s;
+    font-weight: 400;
+  }
+  .calc-btn:hover { background: var(--accent2); }
+  .calc-btn:active { transform: scale(0.98); }
+  .calc-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .error-msg {
+    font-size: 13px;
+    color: var(--red);
+    margin-top: 10px;
+    font-family: 'DM Mono', monospace;
+    min-height: 20px;
+  }
+  .results {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.5s, transform 0.5s;
+    pointer-events: none;
+  }
+  .results.visible { opacity: 1; transform: none; pointer-events: auto; }
+  .map-wrap {
+    margin: 2rem 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: #111827;
+  }
+  #map-svg { width: 100%; display: block; }
+  #map-svg .graticule { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 0.4; }
+  #map-svg .sphere { fill: #111827; }
+  #map-svg .land { fill: #2a3828; stroke: #3d5438; stroke-width: 0.4; }
+  #map-svg .border { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 0.3; }
+  .bbox-path { fill: rgba(200,169,110,0.15); stroke: #c8a96e; stroke-width: 1.5; stroke-dasharray: 5 3; }
+  .map-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 220px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--text3);
+    letter-spacing: 0.1em;
+  }
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+  }
+  .metric { background: var(--surface); padding: 1.25rem 1.5rem; }
+  .metric-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 6px;
+  }
+  .metric-value {
+    font-family: 'Playfair Display', serif;
+    font-size: 2rem;
+    font-weight: 400;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .metric-sub { font-size: 12px; color: var(--text3); margin-top: 4px; }
+  .section-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 1rem;
+  }
+  .travellers { display: flex; flex-direction: column; gap: 8px; margin-bottom: 2rem; }
+  .traveller-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+  }
+  .traveller-row.you { border-color: rgba(200,169,110,0.35); background: rgba(200,169,110,0.05); }
+  .traveller-name { font-size: 13px; color: var(--text2); min-width: 200px; flex-shrink: 0; }
+  .traveller-row.you .traveller-name { color: var(--accent); font-weight: 500; }
+  .bar-wrap { flex: 1; height: 3px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 2px; background: var(--text3); transition: width 1.2s cubic-bezier(0.4,0,0.2,1); width: 0%; }
+  .traveller-row.you .bar-fill { background: var(--accent); }
+  .traveller-pct { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text2); min-width: 48px; text-align: right; }
+  .traveller-row.you .traveller-pct { color: var(--accent); }
+  .share-btn {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    color: var(--text2);
+    padding: 11px 24px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: border-color 0.2s, color 0.2s, background 0.2s;
+  }
+  .share-btn:hover { border-color: var(--accent); background: rgba(200,169,110,0.06); color: var(--accent); }
+  #share-canvas { display: none; }
+  .loading-overlay {
+    position: fixed; inset: 0;
+    background: rgba(13,15,18,0.75);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .loading-overlay.active { opacity: 1; pointer-events: auto; }
+  .spinner {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 0.12em;
+  }
+  .spinner::after { content: '.'; animation: ellipsis 1.4s infinite; }
+  @keyframes ellipsis { 0%{content:'.'} 33%{content:'..'} 66%{content:'...'} 100%{content:'.'} }
+  @media (max-width: 600px) {
+    .compass-grid { grid-template-columns: 1fr; }
+    .metrics { grid-template-columns: 1fr 1fr; }
+    .metrics .metric:last-child { grid-column: span 2; }
+    .traveller-name { min-width: 130px; font-size: 12px; }
+    .container { padding: 2rem 1.25rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loading">
+  <span class="spinner">Locating</span>
+</div>
+
+<div class="container">
+  <header>
+    <div class="eyebrow">World Coverage Calculator</div>
+    <h1>How much of the world<br>have you <em>reached</em>?</h1>
+    <p class="subtitle">Enter the furthest place you've visited in each compass direction. We'll calculate what percentage of the world's land falls within your bounding box.</p>
+  </header>
+
+  <div class="inputs-section">
+    <div class="inputs-label">Your furthest points visited</div>
+    <div class="compass-grid">
+      <div class="input-field" id="field-north">
+        <span class="dir-label">N</span>
+        <div class="field-inner">
+          <label>Northernmost</label>
+          <input type="text" id="north" placeholder="e.g. Narvik, Norway" autocomplete="off">
+          <div class="coord-hint" id="hint-north">&nbsp;</div>
+        </div>
+        <div class="field-status" id="status-north"></div>
+      </div>
+      <div class="input-field" id="field-south">
+        <span class="dir-label">S</span>
+        <div class="field-inner">
+          <label>Southernmost</label>
+          <input type="text" id="south" placeholder="e.g. Cape Town, South Africa" autocomplete="off">
+          <div class="coord-hint" id="hint-south">&nbsp;</div>
+        </div>
+        <div class="field-status" id="status-south"></div>
+      </div>
+      <div class="input-field" id="field-west">
+        <span class="dir-label">W</span>
+        <div class="field-inner">
+          <label>Westernmost</label>
+          <input type="text" id="west" placeholder="e.g. New York, USA" autocomplete="off">
+          <div class="coord-hint" id="hint-west">&nbsp;</div>
+        </div>
+        <div class="field-status" id="status-west"></div>
+      </div>
+      <div class="input-field" id="field-east">
+        <span class="dir-label">E</span>
+        <div class="field-inner">
+          <label>Easternmost</label>
+          <input type="text" id="east" placeholder="e.g. Tokyo, Japan" autocomplete="off">
+          <div class="coord-hint" id="hint-east">&nbsp;</div>
+        </div>
+        <div class="field-status" id="status-east"></div>
+      </div>
+    </div>
+    <button class="calc-btn" id="calc-btn" onclick="calculate()">Calculate coverage</button>
+    <div class="error-msg" id="error-msg"></div>
+  </div>
+
+  <div class="results" id="results">
+
+    <div class="map-wrap">
+      <div class="map-loading" id="map-loading">Loading map data…</div>
+      <svg id="map-svg" viewBox="0 0 920 480" style="display:none"></svg>
+    </div>
+
+    <div class="metrics">
+      <div class="metric">
+        <div class="metric-label">% of world's land</div>
+        <div class="metric-value" id="result-land">—</div>
+        <div class="metric-sub">estimated</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">% of earth's surface</div>
+        <div class="metric-value" id="result-surf">—</div>
+        <div class="metric-sub">inc. oceans</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Box area</div>
+        <div class="metric-value" id="result-area">—</div>
+        <div class="metric-sub">million km²</div>
+      </div>
+    </div>
+
+    <div class="section-title">How do you compare?</div>
+    <div class="travellers" id="travellers-list"></div>
+
+    <button class="share-btn" onclick="shareResult()">↓ Download share card</button>
+    <canvas id="share-canvas"></canvas>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script>
+const EARTH_TOTAL = 510072000;
+const EARTH_LAND  = 148940000;
+
+// Land fraction per 5° latitude band, index 0 = [-90,-85]
+const LAND_FRAC = [
+  0.98,0.92,0.72,0.42,0.22,0.12,
+  0.10,0.12,0.18,0.20,0.22,0.26,
+  0.32,0.42,0.46,0.50,0.55,0.60,
+  0.52,0.50,0.48,0.52,0.58,0.62,
+  0.65,0.68,0.70,0.66,0.60,0.52,
+  0.45,0.38,0.30,0.22,0.12,0.02
+];
+
+const FAMOUS = [
+  { name: 'Ferdinand Magellan (1480–1521)', pct: 55 },
+  { name: 'Ibn Battuta (1304–1368)',         pct: 38 },
+  { name: 'Marco Polo (1254–1324)',           pct: 22 },
+  { name: 'Zheng He (1371–1433)',             pct: 18 },
+  { name: 'Typical gap year traveller',      pct: 12 },
+  { name: 'Typical frequent flyer',          pct:  8 },
+];
+
+// ---- Maths ----
+function toRad(d) { return d * Math.PI / 180; }
+
+function latBandArea(s, n, lonFrac) {
+  const R = 6371;
+  return 2 * Math.PI * R * R * Math.abs(Math.sin(toRad(n)) - Math.sin(toRad(s))) * lonFrac;
+}
+
+// Compute the eastward angular span from w to e, always in [0, 360].
+// This correctly handles antimeridian crossings without double-counting.
+function eastwardSpan(w, e) {
+  let span = e - w;
+  if (span <= 0) span += 360;
+  return span;
+}
+
+function computeResults(n, s, w, e) {
+  const span = eastwardSpan(w, e);
+  const lf = span / 360;
+  const surfArea = latBandArea(s, n, lf);
+  let landArea = 0;
+  for (let lat = -90; lat < 90; lat += 5) {
+    const bs = Math.max(lat, s);
+    const bn = Math.min(lat + 5, n);
+    if (bn <= bs) continue;
+    const idx = Math.min(Math.floor((lat + 90) / 5), LAND_FRAC.length - 1);
+    landArea += latBandArea(bs, bn, lf) * LAND_FRAC[idx];
+  }
+  return {
+    surfArea,
+    landArea,
+    pctSurf: Math.min(surfArea / EARTH_TOTAL * 100, 100),
+    pctLand: Math.min(landArea / EARTH_LAND * 100, 100),
+  };
+}
+
+// ---- Map ----
+const MW = 920, MH = 480;
+let projection, geoPath, mapReady = false;
+
+async function initMap() {
+  try {
+    const world = await d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+
+    projection = d3.geoRobinson()
+      .scale(148)
+      .translate([MW / 2, MH / 2 + 10]);
+
+    geoPath = d3.geoPath(projection);
+
+    const svg = d3.select('#map-svg');
+
+    svg.append('path')
+      .datum({ type: 'Sphere' })
+      .attr('class', 'sphere')
+      .attr('d', geoPath);
+
+    svg.append('path')
+      .datum(d3.geoGraticule()())
+      .attr('class', 'graticule')
+      .attr('d', geoPath);
+
+    svg.append('g')
+      .selectAll('path')
+      .data(topojson.feature(world, world.objects.countries).features)
+      .join('path')
+      .attr('class', 'land')
+      .attr('d', geoPath);
+
+    svg.append('path')
+      .datum(topojson.mesh(world, world.objects.countries, (a,b) => a !== b))
+      .attr('class', 'border')
+      .attr('d', geoPath);
+
+    svg.append('g').attr('id', 'bbox-group');
+    svg.append('g').attr('id', 'pins-group');
+
+    document.getElementById('map-loading').style.display = 'none';
+    document.getElementById('map-svg').style.display = 'block';
+    mapReady = true;
+  } catch(err) {
+    document.getElementById('map-loading').textContent = 'Map unavailable — check connection.';
+  }
+}
+
+function makeBboxPolygon(west, east, south, north) {
+  // Build a densified polygon ring for a lat/lng bounding box.
+  // Uses 60 steps per edge so it curves properly in Robinson projection.
+  const steps = 60;
+  const pts = [];
+  // Bottom (S): west → east
+  for (let i = 0; i <= steps; i++) pts.push([west + eastwardSpan(west,east) * i / steps, south]);
+  // Right (E): south → north
+  for (let i = 1; i <= steps; i++) pts.push([east, south + (north-south) * i / steps]);
+  // Top (N): east → west
+  for (let i = 1; i <= steps; i++) pts.push([east - eastwardSpan(west,east) * i / steps, north]);
+  // Left (W): north → south
+  for (let i = 1; i <= steps; i++) pts.push([west, north - (north-south) * i / steps]);
+  pts.push(pts[0]);
+
+  // Normalise all longitudes into [-180, 180]
+  const norm = pts.map(([lo, la]) => {
+    let lon = lo;
+    while (lon > 180) lon -= 360;
+    while (lon < -180) lon += 360;
+    return [lon, la];
+  });
+
+  return { type: 'Feature', geometry: { type: 'Polygon', coordinates: [norm] } };
+}
+
+function drawBbox(n, s, w, e) {
+  if (!mapReady) return;
+
+  d3.select('#bbox-group').selectAll('*').remove();
+  d3.select('#pins-group').selectAll('*').remove();
+
+  const span = eastwardSpan(w, e);
+
+  if (span >= 359) {
+    // Full globe — skip bbox
+    return;
+  }
+
+  if (span <= 180) {
+    // Normal case — single polygon
+    const feat = makeBboxPolygon(w, e, s, n);
+    d3.select('#bbox-group').append('path')
+      .datum(feat)
+      .attr('class', 'bbox-path')
+      .attr('d', geoPath);
+  } else {
+    // Antimeridian crossing — split into two halves
+    // West half: w → 180
+    const feat1 = makeBboxPolygon(w, 180, s, n);
+    // East half: -180 → (e in western hemisphere)
+    const eAdj = w + span - 360; // equivalent east lon
+    const feat2 = makeBboxPolygon(-180, eAdj, s, n);
+    d3.select('#bbox-group').append('path').datum(feat1).attr('class','bbox-path').attr('d', geoPath);
+    d3.select('#bbox-group').append('path').datum(feat2).attr('class','bbox-path').attr('d', geoPath);
+  }
+
+  // Corner pins
+  const pinData = [
+    [w + span * 0.5 > 180 ? w + span * 0.5 - 360 : w + span * 0.5, n],
+    [w + span * 0.5 > 180 ? w + span * 0.5 - 360 : w + span * 0.5, s],
+    [w, (n+s)/2],
+    [e, (n+s)/2],
+  ];
+
+  pinData.forEach(coords => {
+    const pt = projection(coords);
+    if (!pt) return;
+    d3.select('#pins-group').append('circle')
+      .attr('cx', pt[0]).attr('cy', pt[1]).attr('r', 4.5)
+      .attr('fill', '#c8a96e')
+      .attr('stroke', '#0d0f12')
+      .attr('stroke-width', 1.5);
+  });
+}
+
+// ---- Geocoding (Photon / OpenStreetMap, CORS-friendly) ----
+const cache = {};
+
+async function geocode(query) {
+  if (cache[query]) return cache[query];
+  const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=1&lang=en`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Geocoding request failed');
+  const data = await res.json();
+  if (!data.features || !data.features.length) throw new Error(`Could not find "${query}"`);
+  const f = data.features[0];
+  const [lon, lat] = f.geometry.coordinates;
+  const name = [f.properties.name, f.properties.country].filter(Boolean).join(', ');
+  const r = { lat, lon, name };
+  cache[query] = r;
+  return r;
+}
+
+// ---- Input handling ----
+let coords = { north: null, south: null, east: null, west: null };
+let lastResults = null, lastInputs = {};
+const debounceTimers = {};
+const directions = ['north', 'south', 'east', 'west'];
+
+directions.forEach(dir => {
+  document.getElementById(dir).addEventListener('input', () => {
+    clearTimeout(debounceTimers[dir]);
+    const val = document.getElementById(dir).value.trim();
+    if (!val) { coords[dir] = null; setStatus(dir, ''); setHint(dir, ''); return; }
+    setStatus(dir, 'loading');
+    debounceTimers[dir] = setTimeout(() => resolveCity(dir, val), 750);
+  });
+});
+
+async function resolveCity(dir, val) {
+  try {
+    const r = await geocode(val);
+    coords[dir] = r;
+    setStatus(dir, 'ok');
+    setHint(dir, `${r.lat.toFixed(2)}°,  ${r.lon.toFixed(2)}°`);
+    document.getElementById(`field-${dir}`).classList.add('resolved');
+    document.getElementById(`field-${dir}`).classList.remove('error');
+  } catch(e) {
+    coords[dir] = null;
+    setStatus(dir, 'err');
+    setHint(dir, 'Not found');
+    document.getElementById(`field-${dir}`).classList.add('error');
+    document.getElementById(`field-${dir}`).classList.remove('resolved');
+  }
+}
+
+function setStatus(dir, s) {
+  document.getElementById(`status-${dir}`).className = 'field-status' + (s ? ' '+s : '');
+}
+function setHint(dir, t) {
+  document.getElementById(`hint-${dir}`).textContent = t || '\u00a0';
+}
+
+// ---- Calculate ----
+async function calculate() {
+  const btn = document.getElementById('calc-btn');
+  const errEl = document.getElementById('error-msg');
+  errEl.textContent = '';
+  btn.disabled = true;
+  showLoading(true);
+
+  try {
+    for (const dir of directions) {
+      const val = document.getElementById(dir).value.trim();
+      if (!val) {
+        errEl.textContent = `Please enter a ${dir}ernmost place.`;
+        showLoading(false); btn.disabled = false; return;
+      }
+      if (!coords[dir]) {
+        setStatus(dir, 'loading');
+        try { await resolveCity(dir, val); }
+        catch(e) {
+          errEl.textContent = `Could not locate: "${val}"`;
+          showLoading(false); btn.disabled = false; return;
+        }
+      }
+    }
+
+    const n = coords.north.lat, s = coords.south.lat;
+    const e = coords.east.lon,  w = coords.west.lon;
+
+    if (n <= s) {
+      errEl.textContent = 'Northernmost point must be further north than southernmost.';
+      showLoading(false); btn.disabled = false; return;
+    }
+
+    const res = computeResults(n, s, w, e);
+    lastResults = res;
+    lastInputs = { n, s, e, w };
+    showResults(res, n, s, e, w);
+
+  } catch(err) {
+    errEl.textContent = 'Something went wrong — please try again.';
+    console.error(err);
+  }
+
+  showLoading(false);
+  btn.disabled = false;
+}
+
+function showResults(res, n, s, e, w) {
+  document.getElementById('result-land').textContent = res.pctLand.toFixed(1) + '%';
+  document.getElementById('result-surf').textContent = res.pctSurf.toFixed(1) + '%';
+  document.getElementById('result-area').textContent = (res.surfArea / 1e6).toFixed(1);
+
+  drawBbox(n, s, w, e);
+
+  const list = document.getElementById('travellers-list');
+  const all = [...FAMOUS, { name: 'You', pct: res.pctLand, you: true }]
+    .sort((a, b) => b.pct - a.pct);
+  const maxPct = Math.max(...all.map(t => t.pct));
+
+  list.innerHTML = all.map(t => `
+    <div class="traveller-row ${t.you ? 'you' : ''}">
+      <span class="traveller-name">${t.name}</span>
+      <div class="bar-wrap">
+        <div class="bar-fill" data-w="${(t.pct / maxPct * 100).toFixed(1)}"></div>
+      </div>
+      <span class="traveller-pct">${t.pct.toFixed(1)}%</span>
+    </div>`).join('');
+
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    document.querySelectorAll('.bar-fill').forEach(el => {
+      el.style.width = el.dataset.w + '%';
+    });
+  }));
+
+  const panel = document.getElementById('results');
+  panel.classList.add('visible');
+  setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80);
+}
+
+// ---- Share card ----
+function shareResult() {
+  if (!lastResults) return;
+  const canvas = document.getElementById('share-canvas');
+  canvas.width = 1200; canvas.height = 630;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#0d0f12';
+  ctx.fillRect(0, 0, 1200, 630);
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.025)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < 1200; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,630); ctx.stroke(); }
+  for (let y = 0; y < 630; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(1200,y); ctx.stroke(); }
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(460,40); ctx.lineTo(460,590); ctx.stroke();
+
+  ctx.fillStyle = '#c8a96e';
+  ctx.font = '400 10px "DM Mono", monospace';
+  ctx.fillText('WORLD COVERAGE CALCULATOR  ·  BIGGSDATA.COM', 60, 100);
+
+  ctx.fillStyle = '#e8e4da';
+  ctx.font = '400 88px "Playfair Display", serif';
+  ctx.fillText(lastResults.pctLand.toFixed(1) + '%', 60, 220);
+
+  ctx.fillStyle = '#8a8680';
+  ctx.font = '300 17px "DM Sans", sans-serif';
+  ctx.fillText("of the world's land area within", 60, 260);
+  ctx.fillText('your explored bounding box', 60, 282);
+
+  ctx.fillStyle = '#3a3830';
+  ctx.fillRect(60, 320, 360, 1);
+
+  ctx.fillStyle = '#5a5650';
+  ctx.font = '300 12px "DM Mono", monospace';
+  const lines = [
+    `Earth's surface:  ${lastResults.pctSurf.toFixed(1)}%`,
+    `Box area:         ${(lastResults.surfArea/1e6).toFixed(1)}M km²`,
+    '',
+    `N  ${coords.north?.name || ''}`,
+    `S  ${coords.south?.name || ''}`,
+    `E  ${coords.east?.name || ''}`,
+    `W  ${coords.west?.name || ''}`,
+  ];
+  lines.forEach((l, i) => ctx.fillText(l, 60, 340 + i * 22));
+
+  // Right: simple equirectangular map + bbox
+  const mx=500, my=80, mw=640, mh=400;
+  ctx.fillStyle='#111827'; ctx.fillRect(mx,my,mw,mh);
+  ctx.strokeStyle='rgba(255,255,255,0.04)'; ctx.lineWidth=0.5;
+  for(let i=1;i<6;i++){const y=my+mh*i/6;ctx.beginPath();ctx.moveTo(mx,y);ctx.lineTo(mx+mw,y);ctx.stroke();}
+  for(let i=1;i<6;i++){const x=mx+mw*i/6;ctx.beginPath();ctx.moveTo(x,my);ctx.lineTo(x,my+mh);ctx.stroke();}
+  ctx.strokeStyle='rgba(255,255,255,0.1)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(mx,my+mh/2); ctx.lineTo(mx+mw,my+mh/2); ctx.stroke();
+
+  const {n,s,e,w} = lastInputs;
+  const span = eastwardSpan(w,e);
+  const toX = lon => mx + (lon+180)/360*mw;
+  const toY = lat => my + (90-lat)/180*mh;
+  ctx.fillStyle='rgba(200,169,110,0.2)'; ctx.strokeStyle='#c8a96e'; ctx.lineWidth=2; ctx.setLineDash([5,3]);
+  if(span<=180){
+    const bx1=toX(w),bx2=toX(e),by1=toY(n),bh=toY(s)-toY(n);
+    ctx.fillRect(bx1,by1,bx2-bx1,bh); ctx.strokeRect(bx1,by1,bx2-bx1,bh);
+  } else {
+    const eAdj=w+span-360;
+    const by1=toY(n),bh=toY(s)-toY(n);
+    ctx.fillRect(toX(w),by1,mx+mw-toX(w),bh); ctx.strokeRect(toX(w),by1,mx+mw-toX(w),bh);
+    ctx.fillRect(mx,by1,toX(eAdj)-mx,bh); ctx.strokeRect(mx,by1,toX(eAdj)-mx,bh);
+  }
+  ctx.setLineDash([]);
+
+  const a = document.createElement('a');
+  a.download = 'world-coverage.png';
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+}
+
+function showLoading(v) {
+  document.getElementById('loading').classList.toggle('active', v);
+}
+
+initMap();
+</script>
+</body>
+</html>
