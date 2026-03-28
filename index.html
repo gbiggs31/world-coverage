@@ -386,6 +386,8 @@
       </div>
     </div>
 
+    <button class="share-btn" onclick="shareToX()" style="margin-bottom:1.5rem;">𝕏 Share your result</button>
+
     <div class="section-title">How do you compare?</div>
     <div class="travellers" id="travellers-list"></div>
 
@@ -776,6 +778,13 @@ function showResults(res, n, s, e, w) {
   const panel = document.getElementById('results');
   panel.classList.add('visible');
   setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80);
+}
+
+// ---- Share to X ----
+function shareToX() {
+  if (!lastResults) return;
+  const text = `I've explored ${lastResults.pctLand.toFixed(1)}% of the world's land area and ${lastResults.pctSurf.toFixed(1)}% of Earth's surface — calculated with World Coverage Calculator https://world.biggsdata.com/`;
+  window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(text), '_blank');
 }
 
 // ---- Share card ----
