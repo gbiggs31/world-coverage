@@ -198,7 +198,7 @@
   #map-svg .sphere { fill: #111827; }
   #map-svg .land { fill: #2a3828; stroke: #3d5438; stroke-width: 0.4; }
   #map-svg .border { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 0.3; }
-  .bbox-path { fill: rgba(200,169,110,0.15); stroke: #c8a96e; stroke-width: 1.5; stroke-dasharray: 5 3; }
+  .bbox-path { fill: rgba(220,60,40,0.18); stroke: rgba(220,60,40,0.7); stroke-width: 1px; }
   .map-loading {
     display: flex;
     align-items: center;
@@ -482,7 +482,7 @@ async function initMap() {
   try {
     const world = await d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
 
-    projection = d3.geoNaturalEarth1()
+    projection = d3.geoRobinson()
       .scale(148)
       .translate([MW / 2, MH / 2 + 10]);
 
@@ -513,6 +513,7 @@ async function initMap() {
       .attr('d', geoPath);
 
     svg.append('g').attr('id', 'bbox-group');
+    svg.append('g').attr('id', 'mask-group');
     svg.append('g').attr('id', 'pins-group');
 
     document.getElementById('map-loading').style.display = 'none';
@@ -553,6 +554,7 @@ function drawBbox(n, s, w, e) {
   if (!mapReady) return;
 
   d3.select('#bbox-group').selectAll('*').remove();
+  d3.select('#mask-group').selectAll('*').remove();
   d3.select('#pins-group').selectAll('*').remove();
 
   const span = eastwardSpan(w, e);
@@ -580,22 +582,60 @@ function drawBbox(n, s, w, e) {
     d3.select('#bbox-group').append('path').datum(feat2).attr('class','bbox-path').attr('d', geoPath);
   }
 
-  // Corner pins
+  // Inverted mask — darken everything outside the bbox
+  const maskG = d3.select('#mask-group');
+  const sphereFeat = { type: 'Sphere' };
+  if (span <= 180) {
+    const feat = makeBboxPolygon(w, e, s, n);
+    const combined = {
+      type: 'Feature',
+      geometry: {
+        type: 'MultiPolygon',
+        coordinates: [
+          // outer: full sphere approximated as a large rect in geo coords
+          [[[-179.9,89.9],[179.9,89.9],[179.9,-89.9],[-179.9,-89.9],[-179.9,89.9]]],
+          // inner: bbox (wound opposite = evenodd punch-out)
+          [feat.geometry.coordinates[0].slice().reverse()]
+        ]
+      }
+    };
+    maskG.append('path')
+      .datum(combined)
+      .attr('d', geoPath)
+      .attr('fill', 'rgba(0,0,0,0.45)')
+      .attr('fill-rule', 'evenodd');
+  } else {
+    // Antimeridian crossing — just skip mask for simplicity
+    maskG.append('path')
+      .datum({ type: 'Sphere' })
+      .attr('d', geoPath)
+      .attr('fill', 'rgba(0,0,0,0.25)');
+  }
+
+  // City pins — plot the actual input cities
   const pinData = [
-    [w + span * 0.5 > 180 ? w + span * 0.5 - 360 : w + span * 0.5, n],
-    [w + span * 0.5 > 180 ? w + span * 0.5 - 360 : w + span * 0.5, s],
-    [w, (n+s)/2],
-    [e, (n+s)/2],
+    { lon: coords.north.lon, lat: coords.north.lat, label: coords.north.name },
+    { lon: coords.south.lon, lat: coords.south.lat, label: coords.south.name },
+    { lon: coords.west.lon,  lat: coords.west.lat,  label: coords.west.name },
+    { lon: coords.east.lon,  lat: coords.east.lat,  label: coords.east.name },
   ];
 
-  pinData.forEach(coords => {
-    const pt = projection(coords);
+  pinData.forEach(p => {
+    const pt = projection([p.lon, p.lat]);
     if (!pt) return;
-    d3.select('#pins-group').append('circle')
+    const g = d3.select('#pins-group').append('g');
+    g.append('circle')
       .attr('cx', pt[0]).attr('cy', pt[1]).attr('r', 4.5)
       .attr('fill', '#c8a96e')
       .attr('stroke', '#0d0f12')
       .attr('stroke-width', 1.5);
+    g.append('text')
+      .attr('x', pt[0] + 7)
+      .attr('y', pt[1] + 4)
+      .attr('fill', '#c8a96e')
+      .attr('font-size', '10px')
+      .attr('font-family', 'DM Mono, monospace')
+      .text(p.label.split(',')[0]);
   });
 }
 
