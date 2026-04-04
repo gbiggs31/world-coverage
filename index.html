@@ -330,6 +330,13 @@
   .lb-pct-label { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--text3); letter-spacing: 0.12em; text-transform: uppercase; }
   .lb-surf { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text3); margin-top: 3px; }
   .lb-empty, .lb-loading { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text3); padding: 1.5rem 0; display: block; letter-spacing: 0.05em; }
+  .extreme-table { width: 100%; border-collapse: collapse; }
+  .extreme-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .extreme-table tr:last-child td { border-bottom: none; }
+  .extreme-dir { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase; width: 90px; }
+  .extreme-user { font-size: 13px; color: var(--text); }
+  .extreme-city { font-size: 12px; color: var(--text2); }
+  .extreme-val { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--accent); text-align: right; white-space: nowrap; }
   @media (max-width: 600px) {
     .compass-grid { grid-template-columns: 1fr; }
     .metrics { grid-template-columns: 1fr 1fr; }
@@ -445,6 +452,11 @@
   <div class="leaderboard">
     <div class="section-title">Global Leaderboard</div>
     <div id="leaderboard-list"><span class="lb-loading">Loading…</span></div>
+  </div>
+
+  <div class="leaderboard">
+    <div class="section-title">Extreme Points</div>
+    <div id="extreme-list"><span class="lb-loading">Loading…</span></div>
   </div>
 </div>
 
@@ -792,6 +804,7 @@ async function calculate() {
     const res = computeResults(n, s, w, e);
     lastResults = window._lastResults = res;
     lastInputs = window._lastInputs = { n, s, e, w };
+    window._lastCities = { n: coords.north.name, s: coords.south.name, e: coords.east.name, w: coords.west.name };
     showResults(res, n, s, e, w);
 
   } catch(err) {
@@ -1072,8 +1085,13 @@ window.submitToLeaderboard = async function() {
   msgEl.className = 'lb-msg';
   const { pctLand, pctSurf, surfArea } = window._lastResults;
   const { n, s, e, w } = window._lastInputs;
+  const cities = window._lastCities || {};
   try {
-    await addDoc(collection(db, 'leaderboard'), { name, country, pctLand, pctSurf, surfArea, n, s, e, w, ts: serverTimestamp() });
+    await addDoc(collection(db, 'leaderboard'), {
+      name, country, pctLand, pctSurf, surfArea, n, s, e, w,
+      nCity: cities.n || '', sCity: cities.s || '', eCity: cities.e || '', wCity: cities.w || '',
+      ts: serverTimestamp()
+    });
     msgEl.textContent = '✓ Added to the leaderboard!';
     msgEl.className = 'lb-msg ok';
     nameEl.value = ''; countryEl.value = '';
@@ -1087,6 +1105,27 @@ window.submitToLeaderboard = async function() {
   }
 };
 
+function renderExtremes(entries) {
+  const el = document.getElementById('extreme-list');
+  if (!el || !entries.length) return;
+  const fmtLat = v => Math.abs(v).toFixed(1) + '°' + (v >= 0 ? 'N' : 'S');
+  const fmtLon = v => Math.abs(v).toFixed(1) + '°' + (v >= 0 ? 'E' : 'W');
+  const getFlag = name => { const c = window._countryCodeMap?.[name]; return c ? flagEmoji(c) + '\u00a0' : ''; };
+  const rows = [
+    { dir: '↑ Furthest N', pick: entries.reduce((a,b) => b.n > a.n ? b : a), val: d => fmtLat(d.n),  city: d => d.nCity },
+    { dir: '↓ Furthest S', pick: entries.reduce((a,b) => b.s < a.s ? b : a), val: d => fmtLat(d.s),  city: d => d.sCity },
+    { dir: '→ Furthest E', pick: entries.reduce((a,b) => b.e > a.e ? b : a), val: d => fmtLon(d.e),  city: d => d.eCity },
+    { dir: '← Furthest W', pick: entries.reduce((a,b) => b.w < a.w ? b : a), val: d => fmtLon(d.w),  city: d => d.wCity },
+  ];
+  el.innerHTML = '<table class="extreme-table">' + rows.map(({ dir, pick, val, city }) => `
+    <tr>
+      <td class="extreme-dir">${dir}</td>
+      <td class="extreme-user">${getFlag(pick.country)}${esc(pick.name)}</td>
+      <td class="extreme-city">${esc(city(pick) || '—')}</td>
+      <td class="extreme-val">${val(pick)}</td>
+    </tr>`).join('') + '</table>';
+}
+
 window.loadLeaderboard = async function() {
   const listEl = document.getElementById('leaderboard-list');
   if (!listEl) return;
@@ -1098,10 +1137,15 @@ window.loadLeaderboard = async function() {
   try {
     const q = query(collection(db, 'leaderboard'), orderBy('pctLand', 'desc'), limit(50));
     const snap = await getDocs(q);
-    if (snap.empty) { listEl.innerHTML = '<span class="lb-empty">No entries yet — be the first!</span>'; return; }
+    if (snap.empty) {
+      listEl.innerHTML = '<span class="lb-empty">No entries yet — be the first!</span>';
+      document.getElementById('extreme-list').innerHTML = '<span class="lb-empty">No entries yet.</span>';
+      return;
+    }
+    const entries = snap.docs.map(d => d.data());
+    renderExtremes(entries);
     listEl.innerHTML = '';
-    snap.docs.forEach((docSnap, i) => {
-      const d = docSnap.data();
+    entries.forEach((d, i) => {
       const date = d.ts?.toDate
         ? d.ts.toDate().toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
         : '';
