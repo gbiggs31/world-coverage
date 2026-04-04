@@ -929,14 +929,14 @@ async function shareResult() {
   const toX = lon => shareProj([lon, 0])[0];
   const toY = lat => shareProj([0, lat])[1];
   ctx.fillStyle='rgba(200,169,110,0.2)'; ctx.strokeStyle='#c8a96e'; ctx.lineWidth=2; ctx.setLineDash([5,3]);
-  if(span<=180){
+  if(e >= w){
     const bx1=toX(w),bx2=toX(e),by1=toY(n),bh=toY(s)-toY(n);
     ctx.fillRect(bx1,by1,bx2-bx1,bh); ctx.strokeRect(bx1,by1,bx2-bx1,bh);
   } else {
-    const eAdj=w+span-360;
+    // Antimeridian crossing: w > e (e.g. w=150, e=-150)
     const by1=toY(n),bh=toY(s)-toY(n);
     ctx.fillRect(toX(w),by1,mx+mw-toX(w),bh); ctx.strokeRect(toX(w),by1,mx+mw-toX(w),bh);
-    ctx.fillRect(mx,by1,toX(eAdj)-mx,bh); ctx.strokeRect(mx,by1,toX(eAdj)-mx,bh);
+    ctx.fillRect(mx,by1,toX(e)-mx,bh); ctx.strokeRect(mx,by1,toX(e)-mx,bh);
   }
   ctx.setLineDash([]);
 
