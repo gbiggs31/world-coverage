@@ -430,13 +430,15 @@
       </div>
     </div>
 
-    <button class="share-btn" onclick="shareToX()" style="margin-bottom:1.5rem;">𝕏 Share your result</button>
+    <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:1.5rem;">
+      <button class="share-btn" onclick="shareToX()">𝕏 Share your result</button>
+      <button class="share-btn" onclick="shareResult()">↓ Download share card</button>
+    </div>
 
     <div class="section-title">How do you compare?</div>
     <div class="travellers" id="travellers-list"></div>
 
     <p style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:1.5rem;">Explorer percentages calculated from documented historical routes using the same bounding box method. Hover each row for route details.</p>
-    <button class="share-btn" onclick="shareResult()">↓ Download share card</button>
 
     <div class="lb-submit">
       <div class="section-title">Add to global leaderboard</div>
