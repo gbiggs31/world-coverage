@@ -907,11 +907,12 @@ async function shareResult() {
   // Right: simple equirectangular map + bbox
   const mx=500, my=80, mw=640, mh=400;
   ctx.fillStyle='#111827'; ctx.fillRect(mx,my,mw,mh);
+  // Build projection once — used for both map drawing and bbox coordinates
+  const shareProj = d3.geoEquirectangular().fitSize([mw, mh], {type:'Sphere'});
+  const [stx,sty] = shareProj.translate();
+  shareProj.translate([stx + mx, sty + my]);
   if (window._worldFeatures) {
-    const proj = d3.geoEquirectangular().fitSize([mw, mh], {type:'Sphere'});
-    const [tx,ty] = proj.translate();
-    proj.translate([tx + mx, ty + my]);
-    const mapPath = d3.geoPath(proj, ctx);
+    const mapPath = d3.geoPath(shareProj, ctx);
     ctx.fillStyle='#2a3828'; ctx.strokeStyle='#3d5438'; ctx.lineWidth=0.5;
     window._worldFeatures.features.forEach(f => { mapPath(f); ctx.fill(); ctx.stroke(); });
   }
@@ -923,8 +924,8 @@ async function shareResult() {
 
   const {n,s,e,w} = lastInputs;
   const span = eastwardSpan(w,e);
-  const toX = lon => mx + (lon+180)/360*mw;
-  const toY = lat => my + (90-lat)/180*mh;
+  const toX = lon => shareProj([lon, 0])[0];
+  const toY = lat => shareProj([0, lat])[1];
   ctx.fillStyle='rgba(200,169,110,0.2)'; ctx.strokeStyle='#c8a96e'; ctx.lineWidth=2; ctx.setLineDash([5,3]);
   if(span<=180){
     const bx1=toX(w),bx2=toX(e),by1=toY(n),bh=toY(s)-toY(n);
