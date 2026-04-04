@@ -947,21 +947,25 @@ window.flagEmoji = function(code) {
 };
 window._countryCodeMap = {};
 (function initCountryDropdown() {
-  const sel = document.getElementById('lb-country');
-  if (!sel || !Intl.supportedValuesOf) return;
-  const names = new Intl.DisplayNames(['en'], { type: 'region' });
-  const entries = Intl.supportedValuesOf('region')
-    .filter(c => c.length === 2)
-    .map(c => ({ code: c, name: names.of(c) }))
-    .filter(c => c.name)
-    .sort((a, b) => a.name.localeCompare(b.name));
-  entries.forEach(({ code, name }) => {
-    window._countryCodeMap[name] = code;
-    const opt = document.createElement('option');
-    opt.value = name;
-    opt.textContent = flagEmoji(code) + '\u00a0' + name;
-    sel.appendChild(opt);
-  });
+  try {
+    const sel = document.getElementById('lb-country');
+    if (!sel || !Intl.supportedValuesOf) return;
+    const names = new Intl.DisplayNames(['en'], { type: 'region' });
+    const entries = Intl.supportedValuesOf('region')
+      .filter(c => c.length === 2)
+      .map(c => { try { return { code: c, name: names.of(c) }; } catch(e) { return null; } })
+      .filter(c => c && c.name)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    entries.forEach(({ code, name }) => {
+      window._countryCodeMap[name] = code;
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = window.flagEmoji(code) + '\u00a0' + name;
+      sel.appendChild(opt);
+    });
+  } catch(e) {
+    console.warn('Country dropdown init failed:', e);
+  }
 })();
 
 // ---- Leaderboard thumbnails ----
