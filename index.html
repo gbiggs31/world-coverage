@@ -1114,7 +1114,7 @@ function renderExtremes(entries) {
   if (!el || !entries.length) return;
   const fmtLat = v => Math.abs(v).toFixed(1) + '°' + (v >= 0 ? 'N' : 'S');
   const fmtLon = v => Math.abs(v).toFixed(1) + '°' + (v >= 0 ? 'E' : 'W');
-  const getFlag = name => { const c = window._countryCodeMap?.[name]; return c ? flagEmoji(c) + '\u00a0' : ''; };
+  const getFlag = name => { const c = window._countryCodeMap?.[name]; return c ? `<img src="https://flagcdn.com/20x15/${c.toLowerCase()}.png" width="20" height="15" style="border-radius:2px;vertical-align:middle;margin-right:6px;" alt="${esc(name)}">` : ''; };
   const rows = [
     { dir: '↑ Furthest N', pick: entries.reduce((a,b) => b.n > a.n ? b : a), val: d => fmtLat(d.n),  city: d => d.nCity },
     { dir: '↓ Furthest S', pick: entries.reduce((a,b) => b.s < a.s ? b : a), val: d => fmtLat(d.s),  city: d => d.sCity },
@@ -1160,7 +1160,7 @@ window.loadLeaderboard = async function() {
         <canvas class="lb-thumb" width="140" height="70"></canvas>
         <div class="lb-meta">
           <div class="lb-name">${esc(d.name)}</div>
-          <div class="lb-country">${(()=>{const c=window._countryCodeMap?.[d.country];return c?flagEmoji(c)+'\u00a0':''})()}${esc(d.country)}</div>
+          <div class="lb-country">${(()=>{const c=window._countryCodeMap?.[d.country];return c?`<img src="https://flagcdn.com/20x15/${c.toLowerCase()}.png" width="20" height="15" style="border-radius:2px;vertical-align:middle;margin-right:6px;" alt="${esc(d.country)}">`:''})()}${esc(d.country)}</div>
           ${date ? `<div class="lb-date">${date}</div>` : ''}
         </div>
         <div class="lb-stats">
