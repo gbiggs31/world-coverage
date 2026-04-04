@@ -1096,6 +1096,18 @@ window.submitToLeaderboard = async function() {
   if (!name)    { msgEl.textContent = 'Please enter your name.';    msgEl.className = 'lb-msg err'; return; }
   if (!country) { msgEl.textContent = 'Please enter your country.'; msgEl.className = 'lb-msg err'; return; }
   btnEl.disabled = true;
+  msgEl.textContent = 'Checking…';
+  msgEl.className = 'lb-msg';
+  try {
+    const checkRes = await fetch(`https://www.purgomalum.com/service/containsprofanity?text=${encodeURIComponent(name)}`);
+    const isProfane = (await checkRes.text()).trim() === 'true';
+    if (isProfane) {
+      msgEl.textContent = 'Please enter an appropriate name.';
+      msgEl.className = 'lb-msg err';
+      btnEl.disabled = false;
+      return;
+    }
+  } catch(e) { /* if check fails, allow submission to proceed */ }
   msgEl.textContent = 'Submitting…';
   msgEl.className = 'lb-msg';
   const { pctLand, pctSurf, surfArea } = window._lastResults;
