@@ -435,7 +435,7 @@
       <div class="section-title">Add to global leaderboard</div>
       <div class="lb-inputs">
         <input class="lb-input" id="lb-name" type="text" placeholder="Your name" maxlength="50" autocomplete="off">
-        <input class="lb-input" id="lb-country" type="text" placeholder="Country" maxlength="50" autocomplete="off">
+        <select class="lb-input" id="lb-country"><option value="">Select country…</option></select>
         <button class="share-btn" id="lb-submit-btn" onclick="submitToLeaderboard()">↑ Submit score</button>
       </div>
       <div class="lb-msg" id="lb-submit-msg"></div>
@@ -916,13 +916,40 @@ async function shareResult() {
   }
   ctx.setLineDash([]);
 
-  const a = document.createElement('a');
-  a.download = 'world-coverage.png';
-  a.href = canvas.toDataURL('image/png');
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  canvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.download = 'world-coverage.png';
+    a.href = url;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 'image/png');
 }
+
+// ---- Country dropdown + flag emoji ----
+window.flagEmoji = function(code) {
+  return [...code.toUpperCase()].map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)).join('');
+};
+window._countryCodeMap = {};
+(function initCountryDropdown() {
+  const sel = document.getElementById('lb-country');
+  if (!sel || !Intl.supportedValuesOf) return;
+  const names = new Intl.DisplayNames(['en'], { type: 'region' });
+  const entries = Intl.supportedValuesOf('region')
+    .filter(c => c.length === 2)
+    .map(c => ({ code: c, name: names.of(c) }))
+    .filter(c => c.name)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  entries.forEach(({ code, name }) => {
+    window._countryCodeMap[name] = code;
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = flagEmoji(code) + '\u00a0' + name;
+    sel.appendChild(opt);
+  });
+})();
 
 // ---- Leaderboard thumbnails ----
 const _thumbQueue = [];
@@ -1085,7 +1112,7 @@ window.loadLeaderboard = async function() {
         <canvas class="lb-thumb" width="140" height="70"></canvas>
         <div class="lb-meta">
           <div class="lb-name">${esc(d.name)}</div>
-          <div class="lb-country">${esc(d.country)}</div>
+          <div class="lb-country">${(()=>{const c=window._countryCodeMap?.[d.country];return c?flagEmoji(c)+'\u00a0':''})()}${esc(d.country)}</div>
           ${date ? `<div class="lb-date">${date}</div>` : ''}
         </div>
         <div class="lb-stats">
