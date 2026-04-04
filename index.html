@@ -277,7 +277,6 @@
     transition: border-color 0.2s, color 0.2s, background 0.2s;
   }
   .share-btn:hover { border-color: var(--accent); background: rgba(200,169,110,0.06); color: var(--accent); }
-  #share-canvas { display: none; }
   .loading-overlay {
     position: fixed; inset: 0;
     background: rgba(13,15,18,0.75);
@@ -295,12 +294,50 @@
   }
   .spinner::after { content: '.'; animation: ellipsis 1.4s infinite; }
   @keyframes ellipsis { 0%{content:'.'} 33%{content:'..'} 66%{content:'...'} 100%{content:'.'} }
+  /* ---- Leaderboard submit ---- */
+  .lb-submit { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border); }
+  .lb-inputs { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; }
+  .lb-input {
+    flex: 1; min-width: 140px;
+    background: var(--surface); border: 1px solid var(--border2); border-radius: 2px;
+    padding: 10px 14px; color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 300;
+    outline: none; transition: border-color 0.2s;
+  }
+  .lb-input::placeholder { color: var(--text3); }
+  .lb-input:focus { border-color: var(--accent); }
+  .lb-msg { font-family: 'DM Mono', monospace; font-size: 11px; margin-top: 8px; min-height: 16px; color: var(--text3); }
+  .lb-msg.ok { color: var(--green); }
+  .lb-msg.err { color: var(--red); }
+  /* ---- Leaderboard section ---- */
+  .leaderboard { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--border); }
+  .lb-row {
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 12px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 3px; margin-bottom: 6px;
+    transition: border-color 0.15s;
+  }
+  .lb-row:hover { border-color: var(--border2); }
+  .lb-rank { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text3); min-width: 20px; text-align: right; flex-shrink: 0; }
+  .lb-thumb { display: block; border-radius: 2px; flex-shrink: 0; }
+  .lb-meta { flex: 1; min-width: 0; }
+  .lb-name { font-size: 13px; color: var(--text); font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lb-country { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; margin-top: 1px; }
+  .lb-date { font-size: 10px; color: var(--text3); font-family: 'DM Mono', monospace; opacity: 0.5; margin-top: 1px; }
+  .lb-stats { text-align: right; flex-shrink: 0; min-width: 70px; }
+  .lb-pct { font-family: 'Playfair Display', serif; font-size: 1.35rem; color: var(--accent); line-height: 1; }
+  .lb-pct-unit { font-size: 0.75rem; }
+  .lb-pct-label { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--text3); letter-spacing: 0.12em; text-transform: uppercase; }
+  .lb-surf { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text3); margin-top: 3px; }
+  .lb-empty, .lb-loading { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text3); padding: 1.5rem 0; display: block; letter-spacing: 0.05em; }
   @media (max-width: 600px) {
     .compass-grid { grid-template-columns: 1fr; }
     .metrics { grid-template-columns: 1fr 1fr; }
     .metrics .metric:last-child { grid-column: span 2; }
     .traveller-name { min-width: 130px; font-size: 12px; }
     .container { padding: 2rem 1.25rem 3rem; }
+    .lb-thumb { display: none; }
+    .lb-inputs { flex-direction: column; }
   }
 </style>
 </head>
@@ -393,7 +430,21 @@
 
     <p style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:1.5rem;">Explorer percentages calculated from documented historical routes using the same bounding box method. Hover each row for route details.</p>
     <button class="share-btn" onclick="shareResult()">↓ Download share card</button>
-    <canvas id="share-canvas"></canvas>
+
+    <div class="lb-submit">
+      <div class="section-title">Add to global leaderboard</div>
+      <div class="lb-inputs">
+        <input class="lb-input" id="lb-name" type="text" placeholder="Your name" maxlength="50" autocomplete="off">
+        <input class="lb-input" id="lb-country" type="text" placeholder="Country" maxlength="50" autocomplete="off">
+        <button class="share-btn" id="lb-submit-btn" onclick="submitToLeaderboard()">↑ Submit score</button>
+      </div>
+      <div class="lb-msg" id="lb-submit-msg"></div>
+    </div>
+  </div>
+
+  <div class="leaderboard">
+    <div class="section-title">Global Leaderboard</div>
+    <div id="leaderboard-list"><span class="lb-loading">Loading…</span></div>
   </div>
 </div>
 
@@ -504,9 +555,12 @@ async function initMap() {
       .attr('class', 'graticule')
       .attr('d', geoPath);
 
+    const countryFeatures = topojson.feature(world, world.objects.countries);
+    window._worldFeatures = countryFeatures;
+
     svg.append('g')
       .selectAll('path')
-      .data(topojson.feature(world, world.objects.countries).features)
+      .data(countryFeatures.features)
       .join('path')
       .attr('class', 'land')
       .attr('d', geoPath);
@@ -523,6 +577,7 @@ async function initMap() {
     document.getElementById('map-loading').style.display = 'none';
     document.getElementById('map-svg').style.display = 'block';
     mapReady = true;
+    redrawAllThumbnails();
   } catch(err) {
     document.getElementById('map-loading').textContent = 'Map unavailable — check connection.';
   }
@@ -735,8 +790,8 @@ async function calculate() {
     }
 
     const res = computeResults(n, s, w, e);
-    lastResults = res;
-    lastInputs = { n, s, e, w };
+    lastResults = window._lastResults = res;
+    lastInputs = window._lastInputs = { n, s, e, w };
     showResults(res, n, s, e, w);
 
   } catch(err) {
@@ -788,9 +843,10 @@ function shareToX() {
 }
 
 // ---- Share card ----
-function shareResult() {
+async function shareResult() {
   if (!lastResults) return;
-  const canvas = document.getElementById('share-canvas');
+  await document.fonts.ready;
+  const canvas = document.createElement('canvas');
   canvas.width = 1200; canvas.height = 630;
   const ctx = canvas.getContext('2d');
 
@@ -863,7 +919,54 @@ function shareResult() {
   const a = document.createElement('a');
   a.download = 'world-coverage.png';
   a.href = canvas.toDataURL('image/png');
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
+}
+
+// ---- Leaderboard thumbnails ----
+const _thumbQueue = [];
+window.drawThumbnail = function(canvas, n, s, e, w) {
+  _thumbQueue.push({ canvas, n, s, e, w });
+  _renderThumb(canvas, n, s, e, w);
+};
+function redrawAllThumbnails() {
+  _thumbQueue.forEach(({ canvas, n, s, e, w }) => _renderThumb(canvas, n, s, e, w));
+}
+function _renderThumb(canvas, n, s, e, w) {
+  const W = canvas.width, H = canvas.height;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#111827';
+  ctx.fillRect(0, 0, W, H);
+  if (window._worldFeatures) {
+    const proj = d3.geoEquirectangular().fitSize([W, H], { type: 'Sphere' });
+    const path = d3.geoPath(proj, ctx);
+    ctx.fillStyle = '#2a3828';
+    ctx.strokeStyle = '#3d5438';
+    ctx.lineWidth = 0.3;
+    window._worldFeatures.features.forEach(f => { path(f); ctx.fill(); ctx.stroke(); });
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+  ctx.lineWidth = 0.5;
+  ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke();
+  const toX = lon => (lon + 180) / 360 * W;
+  const toY = lat => (90 - lat) / 180 * H;
+  const span = eastwardSpan(w, e);
+  ctx.fillStyle = 'rgba(200,169,110,0.25)';
+  ctx.strokeStyle = '#c8a96e';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([3, 2]);
+  if (span <= 180) {
+    const bx = toX(w), bw = toX(e) - toX(w), by = toY(n), bh = toY(s) - toY(n);
+    ctx.fillRect(bx, by, bw, bh); ctx.strokeRect(bx, by, bw, bh);
+  } else {
+    const eAdj = w + span - 360;
+    const by = toY(n), bh = toY(s) - toY(n);
+    ctx.fillRect(toX(w), by, W - toX(w), bh); ctx.strokeRect(toX(w), by, W - toX(w), bh);
+    ctx.fillRect(0, by, toX(eAdj), bh); ctx.strokeRect(0, by, toX(eAdj), bh);
+  }
+  ctx.setLineDash([]);
 }
 
 function showLoading(v) {
@@ -874,6 +977,132 @@ const topoScript = document.createElement('script');
 topoScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js';
 topoScript.onload = () => initMap();
 document.head.appendChild(topoScript);
+</script>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js';
+import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js';
+
+// ---------------------------------------------------------------
+// 1. Create a project at https://console.firebase.google.com/
+// 2. Enable Firestore (Native mode)
+// 3. Project Settings > Your apps > Add Web App > copy config below
+// 4. Set Firestore rules (Rules tab) to:
+//
+//   rules_version = '2';
+//   service cloud.firestore {
+//     match /databases/{database}/documents {
+//       match /leaderboard/{doc} {
+//         allow read: true;
+//         allow create: if
+//           request.resource.data.keys().hasAll(['name','country','pctLand','pctSurf','surfArea','n','s','e','w','ts'])
+//           && request.resource.data.name is string
+//           && request.resource.data.name.size() > 0
+//           && request.resource.data.name.size() <= 50
+//           && request.resource.data.country is string
+//           && request.resource.data.country.size() > 0
+//           && request.resource.data.country.size() <= 50
+//           && request.resource.data.pctLand is number
+//           && request.resource.data.pctLand >= 0
+//           && request.resource.data.pctLand <= 100;
+//       }
+//     }
+//   }
+// ---------------------------------------------------------------
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyB-iC-mvBMrcRaT6_jGLDG4KkyqOvSLyoc",
+  authDomain:        "world-coverage.firebaseapp.com",
+  projectId:         "world-coverage",
+  storageBucket:     "world-coverage.firebasestorage.app",
+  messagingSenderId: "1054641445054",
+  appId:             "1:1054641445054:web:26d0ed99d100c03b95a6ef"
+};
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let db = null;
+try {
+  if (FIREBASE_CONFIG.apiKey !== 'REPLACE') {
+    db = getFirestore(initializeApp(FIREBASE_CONFIG));
+  }
+} catch(e) { console.warn('Firebase init failed:', e.message); }
+
+window.submitToLeaderboard = async function() {
+  if (!window._lastResults || !db) return;
+  const nameEl   = document.getElementById('lb-name');
+  const countryEl= document.getElementById('lb-country');
+  const msgEl    = document.getElementById('lb-submit-msg');
+  const btnEl    = document.getElementById('lb-submit-btn');
+  const name    = nameEl.value.trim();
+  const country = countryEl.value.trim();
+  if (!name)    { msgEl.textContent = 'Please enter your name.';    msgEl.className = 'lb-msg err'; return; }
+  if (!country) { msgEl.textContent = 'Please enter your country.'; msgEl.className = 'lb-msg err'; return; }
+  btnEl.disabled = true;
+  msgEl.textContent = 'Submitting…';
+  msgEl.className = 'lb-msg';
+  const { pctLand, pctSurf, surfArea } = window._lastResults;
+  const { n, s, e, w } = window._lastInputs;
+  try {
+    await addDoc(collection(db, 'leaderboard'), { name, country, pctLand, pctSurf, surfArea, n, s, e, w, ts: serverTimestamp() });
+    msgEl.textContent = '✓ Added to the leaderboard!';
+    msgEl.className = 'lb-msg ok';
+    nameEl.value = ''; countryEl.value = '';
+    btnEl.disabled = false;
+    window.loadLeaderboard();
+  } catch(err) {
+    console.error(err);
+    msgEl.textContent = 'Failed to submit — please try again.';
+    msgEl.className = 'lb-msg err';
+    btnEl.disabled = false;
+  }
+};
+
+window.loadLeaderboard = async function() {
+  const listEl = document.getElementById('leaderboard-list');
+  if (!listEl) return;
+  if (!db) {
+    listEl.innerHTML = '<span class="lb-empty">Leaderboard coming soon.</span>';
+    return;
+  }
+  listEl.innerHTML = '<span class="lb-loading">Loading…</span>';
+  try {
+    const q = query(collection(db, 'leaderboard'), orderBy('pctLand', 'desc'), limit(50));
+    const snap = await getDocs(q);
+    if (snap.empty) { listEl.innerHTML = '<span class="lb-empty">No entries yet — be the first!</span>'; return; }
+    listEl.innerHTML = '';
+    snap.docs.forEach((docSnap, i) => {
+      const d = docSnap.data();
+      const date = d.ts?.toDate
+        ? d.ts.toDate().toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
+        : '';
+      const row = document.createElement('div');
+      row.className = 'lb-row';
+      row.innerHTML = `
+        <div class="lb-rank">${i + 1}</div>
+        <canvas class="lb-thumb" width="140" height="70"></canvas>
+        <div class="lb-meta">
+          <div class="lb-name">${esc(d.name)}</div>
+          <div class="lb-country">${esc(d.country)}</div>
+          ${date ? `<div class="lb-date">${date}</div>` : ''}
+        </div>
+        <div class="lb-stats">
+          <div class="lb-pct">${d.pctLand.toFixed(1)}<span class="lb-pct-unit">%</span></div>
+          <div class="lb-pct-label">land</div>
+          <div class="lb-surf">${d.pctSurf.toFixed(1)}% surface</div>
+        </div>`;
+      listEl.appendChild(row);
+      if (window.drawThumbnail) window.drawThumbnail(row.querySelector('canvas'), d.n, d.s, d.e, d.w);
+    });
+  } catch(err) {
+    console.error(err);
+    listEl.innerHTML = '<span class="lb-empty">Could not load leaderboard.</span>';
+  }
+};
+
+window.loadLeaderboard();
 </script>
 </body>
 </html>

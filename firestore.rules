@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /leaderboard/{doc} {
+      allow read: true;
+      allow create: if
+        request.resource.data.keys().hasAll(['name','country','pctLand','pctSurf','surfArea','n','s','e','w','ts'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 50
+        && request.resource.data.country is string
+        && request.resource.data.country.size() > 0
+        && request.resource.data.country.size() <= 50
+        && request.resource.data.pctLand is number
+        && request.resource.data.pctLand >= 0
+        && request.resource.data.pctLand <= 100
+        && request.resource.data.pctSurf is number
+        && request.resource.data.pctSurf >= 0
+        && request.resource.data.pctSurf <= 100;
+      allow update, delete: false;
+    }
+  }
+}
